@@ -8,7 +8,6 @@ import json
 
 load_dotenv()
 BOT_TOKEN = getenv("BOT_TOKEN")
-print(BOT_TOKEN)
 
 url_pattern = r'(https?://[^\s]+|www\.[^\s]+)'
 
