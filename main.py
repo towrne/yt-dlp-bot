@@ -12,7 +12,8 @@ BOT_TOKEN = getenv("BOT_TOKEN")
 setup_database()
 cookie_file = 'cookies.txt'
 url_pattern = r'(?:https?:\/\/)?(?:www\.)?(?:music\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|shorts\/|live\/|)?([\w-]{11})(?:\S+)?'
-
+CACHE_PATH = 'cache/'
+os.makedirs(CACHE_PATH, exist_ok=True)
 output_template = 'downloads/%(title)s.%(ext)s'
 
 QUALITY_OPTIONS = {
@@ -24,6 +25,7 @@ QUALITY_OPTIONS = {
             'preferredquality': '192', 
         }],
         'outtmpl': output_template,
+        'cachedir': CACHE_PATH
     },
     'mp3_low': {
         'format': 'm4a/bestaudio/best',
@@ -33,27 +35,32 @@ QUALITY_OPTIONS = {
             'preferredquality': '128',
         }],
         'outtmpl': output_template,
+        'cachedir': CACHE_PATH
     },
 
     'video_1080': {
         'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
         'outtmpl': output_template,
+        'cachedir': CACHE_PATH
     },
     'video_720': {
         'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
         'outtmpl': output_template,
+        'cachedir': CACHE_PATH
     },
     'video_480': {
         'format': 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
         'outtmpl': output_template,
+        'cachedir': CACHE_PATH
     },
     'video_360': {
         'format': 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
         'outtmpl': output_template,
+        'cachedir': CACHE_PATH
     }
 }
 
@@ -98,11 +105,8 @@ def send_buttons(chat_id,links_id):
 
 def get_video_duration(video_url,quality):
     ydl_opts = QUALITY_OPTIONS[quality]
-    
-    ydl_opts.update({
-        'quiet': True,
-        'skip_download': True,
-    })
+
+    ydl_opts['cookiesfrombrowser'] = ('firefox',)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(video_url, download=False)
 
@@ -112,6 +116,8 @@ def get_video_duration(video_url,quality):
 
 def youtube_download(url,quality):
     ydl_opts = QUALITY_OPTIONS[quality]
+ 
+    ydl_opts['cookiesfrombrowser'] = ('firefox',)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
         file_path = info['requested_downloads'][0]['filepath']
