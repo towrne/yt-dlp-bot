@@ -22,7 +22,6 @@ CACHE_PATH = "cache"
 url_pattern = r"(?:https?:\/\/)?(?:www\.)?(?:music\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|shorts\/|live\/|)?([\w-]{11})(?:\S+)?"
 output_template = "downloads/%(title)s.%(ext)s"
 
-setup_database()
 makedirs(CACHE_PATH, exist_ok=True)
 
 QUALITY_OPTIONS = {
@@ -233,17 +232,18 @@ dp = Dispatcher()
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
     await message.answer(
-        "Send me a youtube link for downloading, also you can send multuple links in one message"
+        html.bold(
+            "Send me a youtube link for downloading, also you can send multiple links in one message"
+        )
     )
 
 
 async def main() -> None:
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    await setup_database()
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    # print("Bot starting...")
-    # handle_updates()
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main())
