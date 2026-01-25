@@ -2,8 +2,6 @@ import json
 import uuid
 import aiosqlite
 
-# --- Database Functions ---
-
 
 async def setup_database():
     """Initializes the database and creates the 'links' table."""
