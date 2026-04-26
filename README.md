@@ -48,26 +48,3 @@ python main.py
 4. Select the desired quality from the inline keyboard.
 5. Wait for the download and upload to complete.
 
-## Project Structure
-
-```
-yt-dlp-bot/
-  main.py          Bot entry point and message handlers
-  database.py      SQLite database operations
-  requirements.txt Python dependencies
-  .env             Environment variables (BOT_TOKEN)
-  cache/           yt-dlp cache directory
-  downloads/       Downloaded files (auto-created)
-```
-
-## Dependencies
-
-- aiogram - Telegram Bot API framework
-- yt-dlp - YouTube downloading library
-- aiosqlite - Async SQLite wrapper
-- python-dotenv - Environment variable loader
-- requests - HTTP file uploads
-
-## License
-
-MIT
