@@ -24,10 +24,19 @@ url_pattern = r"(?:https?:\/\/)?(?:www\.)?(?:music\.)?(?:youtube\.com|youtu\.be)
 output_template = "downloads/%(title)s.%(ext)s"
 
 makedirs(CACHE_PATH, exist_ok=True)
+makedirs("downloads", exist_ok=True)
+
+# Убраны устаревшие extractor_args и куки
+COMMON_YDL_OPTS = {
+    "cachedir": CACHE_PATH,
+    "quiet": True,
+    "no_warnings": True,
+}
 
 QUALITY_OPTIONS = {
     "mp3_high": {
-        "format": "m4a/bestaudio/best",
+        **COMMON_YDL_OPTS,
+        "format": "bestaudio/best",
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
@@ -36,10 +45,10 @@ QUALITY_OPTIONS = {
             }
         ],
         "outtmpl": output_template,
-        "cachedir": CACHE_PATH,
     },
     "mp3_low": {
-        "format": "m4a/bestaudio/best",
+        **COMMON_YDL_OPTS,
+        "format": "bestaudio/best",
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
@@ -48,31 +57,30 @@ QUALITY_OPTIONS = {
             }
         ],
         "outtmpl": output_template,
-        "cachedir": CACHE_PATH,
     },
     "video_1080": {
-        "format": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        **COMMON_YDL_OPTS,
+        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
         "merge_output_format": "mp4",
         "outtmpl": output_template,
-        "cachedir": CACHE_PATH,
     },
     "video_720": {
-        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        **COMMON_YDL_OPTS,
+        "format": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
         "merge_output_format": "mp4",
         "outtmpl": output_template,
-        "cachedir": CACHE_PATH,
     },
     "video_480": {
-        "format": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        **COMMON_YDL_OPTS,
+        "format": "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
         "merge_output_format": "mp4",
         "outtmpl": output_template,
-        "cachedir": CACHE_PATH,
     },
     "video_360": {
-        "format": "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        **COMMON_YDL_OPTS,
+        "format": "bestvideo[height<=360]+bestaudio/best[height<=360]/best",
         "merge_output_format": "mp4",
         "outtmpl": output_template,
-        "cachedir": CACHE_PATH,
     },
 }
 
@@ -80,38 +88,55 @@ dp = Dispatcher()
 
 
 def extract_links(text):
-    global url_pattern
     links = re.findall(url_pattern, text)
-    return links
+    # Возвращаем полные ссылки, а не только ID
+    full_links = []
+    for link_id in links:
+        if len(link_id) == 11:
+            full_links.append(f"https://www.youtube.com/watch?v={link_id}")
+    return full_links
 
 
-def get_video_duration(video_url, quality):
-    ydl_opts = QUALITY_OPTIONS[quality]
-    ydl_opts["cookiesfrombrowser"] = ("chromium",)  # TO-DO: fix that
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(video_url, download=False)
-        if "duration" in info:
-            return info["duration"]
-    return None
+def get_video_duration(video_url):
+    """Получаем длительность без указания формата — так надёжнее"""
+    ydl_opts = {
+        **COMMON_YDL_OPTS,
+        "skip_download": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+            return info.get("duration") if info else None
+    except Exception as e:
+        logging.warning(f"Failed to get duration for {video_url}: {e}")
+        return None
 
 
 def youtube_download(url, quality):
-    ydl_opts = QUALITY_OPTIONS[quality]
-    ydl_opts["cookiesfrombrowser"] = ("chromium",)  # TO-DO: fix that
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        file_path = info["requested_downloads"][0]["filepath"]
-        return file_path
+    ydl_opts = QUALITY_OPTIONS[quality].copy()
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            if info and "requested_downloads" in info and info["requested_downloads"]:
+                return info["requested_downloads"][0]["filepath"]
+            # Fallback для некоторых версий yt-dlp
+            return ydl.prepare_filename(info)
+    except Exception as e:
+        logging.error(f"Download failed for {url}: {e}")
+        raise
 
 
 def upload_file(chat_id, file_path):
-    global BOT_TOKEN
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
-    with open(file_path, "rb") as file:
-        files = {"document": file}
-        data = {"chat_id": chat_id}
-        response = requests.post(url, data=data, files=files)
-    return response.json()
+    try:
+        with open(file_path, "rb") as file:
+            files = {"document": file}
+            data = {"chat_id": chat_id}
+            response = requests.post(url, data=data, files=files, timeout=120)
+        return response.json()
+    except Exception as e:
+        logging.error(f"Upload failed: {e}")
+        return {"ok": False, "description": str(e)}
 
 
 @dp.message(CommandStart())
@@ -125,8 +150,13 @@ async def command_start_handler(message: Message) -> None:
 
 @dp.message()
 async def message_handler(message: Message) -> None:
-    if "youtube.com" in message.text or "youtu.be" in message.text:
-        links = extract_links(message.text)
+    text = message.text or ""
+    if "youtube.com" in text or "youtu.be" in text:
+        links = extract_links(text)
+        if not links:
+            await message.answer(html.bold("No valid YouTube links found."))
+            return
+        
         links_id = await store_links_and_get_id(links)
 
         builder = InlineKeyboardBuilder()
@@ -148,24 +178,65 @@ async def handle_callbacks(callback: CallbackQuery):
 
     if data == "cancel":
         await callback.message.edit_text(html.bold("Action canceled."))
-    else:
-        split_data = data.split(":")
-        links = await get_links_by_id(split_data[1])
-        quality = split_data[0]
+        return
 
-        for link in links:
-            download_size = get_video_duration(link, quality) * 0.4
-            if download_size > 512:
-                await callback.message.edit_text(
-                    html.bold(
-                        f"File size too big for {link} (approx {download_size}MB\nMaximum file size: 512MB"
-                    )
+    split_data = data.split(":")
+    if len(split_data) != 2:
+        await callback.message.edit_text(html.bold("Invalid callback data."))
+        return
+
+    quality = split_data[0]
+    links_id = split_data[1]
+
+    if quality not in QUALITY_OPTIONS:
+        await callback.message.edit_text(html.bold("Unknown quality."))
+        return
+
+    links = await get_links_by_id(links_id)
+    if not links:
+        await callback.message.edit_text(html.bold("Links not found in database."))
+        return
+
+    for link in links:
+        # Проверка длительности
+        duration = get_video_duration(link)
+        if duration is None:
+            await callback.message.edit_text(
+                html.bold(f"Could not fetch info for {link}")
+            )
+            continue
+
+        # Оценка размера: ~0.4 MB/сек для видео, ~0.15 MB/сек для MP3
+        size_factor = 0.15 if quality.startswith("mp3") else 0.4
+        approx_size = duration * size_factor
+
+        if approx_size > 512:
+            await callback.message.edit_text(
+                html.bold(
+                    f"File too big for {link}\nApprox: {approx_size:.1f}MB\nMax: 512MB"
                 )
-                continue
+            )
+            continue
 
-            await callback.message.edit_text(html.bold("Download started"))
+        await callback.message.edit_text(html.bold(f"Downloading: {link}"))
+        
+        try:
             file_path = youtube_download(link, quality)
-            upload_file(callback.message.chat.id, file_path)
+            await callback.message.edit_text(html.bold("Uploading..."))
+            result = upload_file(callback.message.chat.id, file_path)
+            
+            if not result.get("ok"):
+                await callback.message.edit_text(
+                    html.bold(f"Upload failed: {result.get('description', 'Unknown error')}")
+                )
+            else:
+                await callback.message.edit_text(html.bold("Done!"))
+                
+        except Exception as e:
+            logging.exception("Download/upload error")
+            await callback.message.edit_text(
+                html.bold(f"Error: {str(e)}")
+            )
 
 
 async def main() -> None:
