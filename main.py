@@ -26,7 +26,7 @@ output_template = "downloads/%(title)s.%(ext)s"
 makedirs(CACHE_PATH, exist_ok=True)
 makedirs("downloads", exist_ok=True)
 
-# Убраны устаревшие extractor_args и куки
+
 COMMON_YDL_OPTS = {
     "cachedir": CACHE_PATH,
     "quiet": True,
@@ -89,7 +89,7 @@ dp = Dispatcher()
 
 def extract_links(text):
     links = re.findall(url_pattern, text)
-    # Возвращаем полные ссылки, а не только ID
+
     full_links = []
     for link_id in links:
         if len(link_id) == 11:
@@ -98,7 +98,7 @@ def extract_links(text):
 
 
 def get_video_duration(video_url):
-    """Получаем длительность без указания формата — так надёжнее"""
+
     ydl_opts = {
         **COMMON_YDL_OPTS,
         "skip_download": True,
