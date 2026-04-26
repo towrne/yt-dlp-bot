@@ -235,7 +235,7 @@ async def handle_callbacks(callback: CallbackQuery):
         except Exception as e:
             logging.exception("Download/upload error")
             await callback.message.edit_text(
-                html.bold(f"Error: {str(e)}")
+                html.bold(f"Error: {type(e).__name__}")
             )
 
 
