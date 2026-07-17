@@ -37,6 +37,28 @@ Get a token from @BotFather on Telegram.
 
 4. Make sure FFmpeg is installed and available in your PATH.
 
+## Docker
+
+Alternatively, run the bot in Docker (FFmpeg is included in the image, only a `.env` file with `BOT_TOKEN` is required):
+
+1. Build the image:
+```
+docker build -t yt-dlp-bot .
+```
+
+2. Run the container:
+```
+docker run -d --name yt-dlp-bot --env-file .env yt-dlp-bot
+```
+
+To persist the SQLite database between container restarts, mount it as a volume (the file must exist before the first run):
+```
+touch bot_data.db
+docker run -d --name yt-dlp-bot --env-file .env -v $(pwd)/bot_data.db:/app/bot_data.db yt-dlp-bot
+```
+
+View logs with `docker logs -f yt-dlp-bot`.
+
 ## Usage
 
 1. Start the bot:
